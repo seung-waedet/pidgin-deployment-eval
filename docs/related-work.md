@@ -56,6 +56,10 @@ open answers, so the judge-human agreement number is what stands between us and 
 same problem. If agreement is poor, we report it and fall back to human scoring on
 the affected criteria.
 
+There is one human marker for now, so we can report judge-human agreement but not
+agreement between humans. That means the judge is measured against one person's
+reading, not an established standard. Results will state this limit.
+
 ## Leads not yet read
 
 Seen in search results only. Read these before repeating the claim above:

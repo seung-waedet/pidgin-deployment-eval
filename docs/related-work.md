@@ -45,14 +45,14 @@ From Wazobia Eval:
 ## Gaps we address
 
 - **Over-refusal.** The red-teaming prompts are all harmful, so that paper cannot
-  show whether a model refuses things it should answer. Our twins measure this.
+  show whether a model refuses things it should answer. Our twins will measure this.
 - **A rule for bare refusals.** The red-teaming paper states no explicit rule for
   whether a bare refusal counts as understood. Ours will state one before scoring.
 
 ## A risk to our method
 
-The red-teaming authors rejected LLM judges as unreliable. This project uses one for
-open answers, so the judge-human agreement number is what stands between us and the
+The red-teaming authors rejected LLM judges as unreliable. This project will use one
+for open answers, so the judge-human agreement number is what stands between us and the
 same problem. If agreement is poor, we report it and fall back to human scoring on
 the affected criteria.
 

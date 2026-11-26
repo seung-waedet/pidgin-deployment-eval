@@ -5,3 +5,6 @@ __pycache__/
 .env
 *.sqlite
 logs/
+
+# Private items repo, cloned here but never committed to this public repo
+/items/

@@ -33,17 +33,25 @@ not mean a model is safe to use for health or money decisions.
 
 - `services/dataset` holds the item schema and the checks every item must pass.
 - `docs/related-work.md` covers what existing work measures and how this differs.
+- `items/` holds the test items. It is a separate private repo cloned into this
+  folder and ignored by this one, so items are never committed here.
 
-Test items live in a separate private repo until release. The plan is to publish
-items on Hugging Face and keep a held-out share unpublished, so results can be
-rechecked on items no model could have trained on.
+Items stay private until release so models cannot train on them. The plan is to
+publish items on Hugging Face and keep a held-out share unpublished, so results
+can be rechecked on items no model could have trained on.
+
+Maintainers with access to the private repo clone it into place:
+
+```bash
+git clone https://github.com/seung-waedet/pidgin-deployment-eval-items.git items
+```
 
 ## Run the checks
 
 ```bash
 cd services/dataset
 uv run pytest
-uv run pidgin-dataset check <items-directory>
+uv run pidgin-dataset check ../../items
 ```
 
 Add `--release` to fail while any item is still a draft. Results runs will have to

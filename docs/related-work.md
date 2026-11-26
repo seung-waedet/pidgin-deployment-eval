@@ -3,8 +3,8 @@
 ## How this project differs
 
 We found no published benchmark that tests health, finance or government-information
-tasks in Nigerian Pidgin. Existing Pidgin work measures understanding, translation,
-general language tasks, or resistance to explicit attacks. This project measures
+tasks in Nigerian Pidgin. Existing Pidgin work measures understanding, commonsense
+reasoning, translation, general language tasks, or resistance to explicit attacks. This project measures
 whether a model gets ordinary practical tasks right, and whether it says so when the
 text in front of it cannot settle the question.
 
@@ -16,6 +16,7 @@ absence. Recheck it before publishing results.
 | Work | Language | What it tests | Practical tasks? | Read |
 |---|---|---|---|---|
 | Wazobia Eval, arXiv:2608.21369 | Pidgin | Emotion, sarcasm, cultural explanation | No | Full text |
+| Global PIQA, arXiv:2510.24081 (v2) | 141 language varieties, Pidgin included (`pcm_latn`) | Everyday commonsense reasoning, two-choice and four-choice. Pidgin: 100 non-parallel items written by native speakers, 103 parallel items translated by LLM and corrected by native speakers | No | Full text |
 | Red-teaming Yoruba and Pidgin, arXiv:2610.39590 | Yoruba, Pidgin, English | 400 explicitly harmful prompts per language | No | Full text |
 | SAHARA, ACL 2025 | 517 African languages, Pidgin included | 16 language tasks. Pidgin gets sentiment, translation, summarisation, title generation and NER | No health, finance or government tasks for Pidgin | Full text |
 | NaijaS2ST, EMNLP 2026 | Includes Igbo, Hausa, Pidgin | Speech translation | No | Abstract only |
@@ -35,6 +36,16 @@ From the red-teaming paper:
   Yoruba. It does not find this for Pidgin, where the correlations point the other
   way across its six models. We do not assume refusals in Pidgin are either genuine
   or empty.
+
+From Global PIQA:
+
+- The best model scores 96% on the Pidgin items in both splits, the same as English on
+  the non-parallel split. So top models read everyday Pidgin well. When a model fails
+  one of our items, we will not blame Pidgin comprehension without checking.
+- Its Pidgin split can serve as a comprehension control: run each model on it next to
+  our items, so a task-specific failure can be told apart from weak general Pidgin.
+- Its licence (CC BY-SA 4.0) forbids training AI systems on it, or on synthetic data
+  seeded from it. Evaluating on it is allowed. We will not use it to generate items.
 
 From Wazobia Eval:
 

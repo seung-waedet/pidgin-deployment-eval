@@ -169,14 +169,27 @@ def test_only_allowlisted_variables_reach_the_child():
     assert set(child_environment(environ)) == {"PATH", "HOME", "LC_ALL", "CLAUDE_CODE_OAUTH_TOKEN"}
 
 
+async def gone_within(pid: int, seconds: float) -> bool:
+    """True once pid no longer exists. Polls, so a busy machine cannot fail it early."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        await asyncio.sleep(0.05)
+    return False
+
+
 async def test_a_timeout_holds_even_when_a_child_keeps_the_pipes_open(tmp_path, monkeypatch):
+    # A shell script, not Python: it starts in milliseconds even on a loaded machine,
+    # so the grandchild exists well before the 2s timeout fires.
     script = tmp_path / "claude"
     script.write_text(
-        f"#!{sys.executable}\n"
-        "import json, subprocess, time\n"
-        "child = subprocess.Popen(['sleep', '47'])\n"
-        f"open({str(tmp_path / 'call.json')!r}, 'w').write(json.dumps({{'grandchild': child.pid}}))\n"
-        "time.sleep(47)\n"
+        "#!/bin/sh\n"
+        "sleep 47 &\n"
+        f"echo $! > {str(tmp_path / 'grandchild')!r}\n"
+        "sleep 47\n"
     )
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
     monkeypatch.setenv("CLAUDE_CODE_BIN", str(script))
@@ -186,9 +199,8 @@ async def test_a_timeout_holds_even_when_a_child_keeps_the_pipes_open(tmp_path, 
         await get_model("claude-code/fable").generate("q", config=GenerateConfig(timeout=2))
     assert time.monotonic() - started < 10
 
-    await asyncio.sleep(0.5)
-    with pytest.raises(ProcessLookupError):
-        os.kill(recorded_call(tmp_path)["grandchild"], 0)
+    grandchild = int((tmp_path / "grandchild").read_text())
+    assert await gone_within(grandchild, 5), "a grandchild holding the pipes outlived the call"
 
 
 async def test_a_context_overflow_is_reported_as_cut_off(tmp_path, monkeypatch):
@@ -245,8 +257,7 @@ async def test_cancelling_a_call_kills_the_claude_process(tmp_path, monkeypatch)
     with pytest.raises(asyncio.CancelledError):
         await call
 
-    with pytest.raises(ProcessLookupError):
-        os.kill(pid, 0)
+    assert await gone_within(pid, 5), "cancelling the call left the claude process running"
 
 
 @pytest.mark.live

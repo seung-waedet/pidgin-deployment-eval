@@ -8,11 +8,11 @@ from pidgin_scorer.numbers import contains_number, extract_numbers
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("Total na 20,076.88", [Decimal("20076.88")]),
-        ("₦20,076.88 comot", [Decimal("20076.88")]),
-        ("NGN20,076.88", [Decimal("20076.88")]),
-        ("N37,700.", [Decimal("37700")]),
-        ("#37,700", [Decimal("37700")]),
+        ("Total na 18,563.75", [Decimal("18563.75")]),
+        ("₦18,563.75 comot", [Decimal("18563.75")]),
+        ("NGN18,563.75", [Decimal("18563.75")]),
+        ("N52,850.", [Decimal("52850")]),
+        ("#52,850", [Decimal("52850")]),
         ("25k", [Decimal("25000")]),
         ("25 K", [Decimal("25000")]),
         ("25 thousand naira", [Decimal("25000")]),
@@ -40,8 +40,8 @@ def test_k_followed_by_a_word_is_not_thousands():
 
 
 def test_contains_number_compares_values_not_text():
-    assert contains_number("Balance na NGN37,700.00", Decimal("37700")) is True
-    assert contains_number("Balance na 41,200", Decimal("37700")) is False
+    assert contains_number("Balance na NGN52,850.00", Decimal("52850")) is True
+    assert contains_number("Balance na 49,350", Decimal("52850")) is False
 
 
 def test_spelled_out_numbers_are_not_read():
@@ -62,4 +62,4 @@ def test_a_spaced_m_is_not_millions():
 
 
 def test_a_number_glued_to_a_word_by_a_dot_is_not_read():
-    assert extract_numbers("Ref.37700") == []
+    assert extract_numbers("Ref.52850") == []

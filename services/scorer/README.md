@@ -12,7 +12,7 @@ An answer passes only if all three hold:
    `125,000` is not 25000). A bare `m` counts as million only straight after the
    number, so "wait 5 m" stays 5. Not read: spelled-out numbers ("twenty thousand"),
    space or dot grouping (`37 700`, `37.700`), and numbers glued to a word by a
-   dot (`Ref.37700`). A fact written those ways shows as a missing fact.
+   dot (`Ref.52850`). A fact written those ways shows as a missing fact.
 2. Every `critical` criterion is met, as judged by the LLM judge.
 3. No `auto_fail` is triggered, as judged by the LLM judge.
 

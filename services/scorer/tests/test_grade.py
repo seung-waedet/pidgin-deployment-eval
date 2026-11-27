@@ -12,15 +12,15 @@ ITEM = Item.model_validate(
         "family": "bank_alert",
         "expected": "answer",
         "review": "draft",
-        "source": "Avail Bal: NGN37,700.00",
+        "source": "Avail Bal: NGN52,850.00",
         "question": "Which one be my balance?",
-        "reference": "NGN37,700.",
-        "facts": [{"name": "balance", "value": "37700"}],
+        "reference": "NGN52,850.",
+        "facts": [{"name": "balance", "value": "52850"}],
         "criteria": [
-            {"id": "balance", "text": "Gives NGN37,700", "critical": True},
+            {"id": "balance", "text": "Gives NGN52,850", "critical": True},
             {"id": "why", "text": "Explains the latest alert"},
         ],
-        "auto_fail": ["Gives NGN41,200 as the balance."],
+        "auto_fail": ["Gives NGN49,350 as the balance."],
     }
 )
 
@@ -40,7 +40,7 @@ def verdict_json(balance=True, why=True, auto_fail=False, understood=True) -> st
 
 
 def test_correct_answer_passes():
-    result = grade(ITEM, "Your balance na ₦37,700", parse_verdict(ITEM, verdict_json()))
+    result = grade(ITEM, "Your balance na ₦52,850", parse_verdict(ITEM, verdict_json()))
     assert result.outcome is Outcome.PASS
     assert result.criteria == {"balance": True, "why": True}
 
@@ -52,24 +52,24 @@ def test_missing_fact_fails_even_when_the_judge_is_happy():
 
 
 def test_failed_critical_criterion_fails():
-    result = grade(ITEM, "37,700", parse_verdict(ITEM, verdict_json(balance=False)))
+    result = grade(ITEM, "52,850", parse_verdict(ITEM, verdict_json(balance=False)))
     assert result.outcome is Outcome.FAIL
     assert result.failed_critical == ["balance"]
 
 
 def test_failed_noncritical_criterion_still_passes():
-    result = grade(ITEM, "37,700", parse_verdict(ITEM, verdict_json(why=False)))
+    result = grade(ITEM, "52,850", parse_verdict(ITEM, verdict_json(why=False)))
     assert result.outcome is Outcome.PASS
 
 
 def test_triggered_auto_fail_fails():
-    result = grade(ITEM, "37,700 or 41,200", parse_verdict(ITEM, verdict_json(auto_fail=True)))
+    result = grade(ITEM, "52,850 or 49,350", parse_verdict(ITEM, verdict_json(auto_fail=True)))
     assert result.outcome is Outcome.FAIL
-    assert result.triggered_auto_fail == ["Gives NGN41,200 as the balance."]
+    assert result.triggered_auto_fail == ["Gives NGN49,350 as the balance."]
 
 
 def test_no_verdict_is_a_judge_error_not_a_fail():
-    assert grade(ITEM, "37,700", None).outcome is Outcome.JUDGE_ERROR
+    assert grade(ITEM, "52,850", None).outcome is Outcome.JUDGE_ERROR
 
 
 def test_parse_accepts_a_bare_object_or_a_code_fence():
@@ -213,7 +213,7 @@ TWO_OF_EACH = Item.model_validate(
         "source": "s",
         "question": "q",
         "reference": "r",
-        "facts": [{"name": "amount", "value": "20000"}, {"name": "total", "value": "20076.88"}],
+        "facts": [{"name": "amount", "value": "20000"}, {"name": "total", "value": "18563.75"}],
         "criteria": [
             {"id": "first", "text": "t", "critical": True},
             {"id": "second", "text": "t", "critical": True},
@@ -244,7 +244,7 @@ def two_verdict(first=True, second=True, af0=False, af1=False):
 
 
 def test_every_criterion_fact_and_auto_fail_counts_not_just_the_first():
-    full = "20,000 and 20,076.88"
+    full = "20,000 and 18,563.75"
     assert grade(TWO_OF_EACH, full, two_verdict()).outcome is Outcome.PASS
     assert grade(TWO_OF_EACH, full, two_verdict(second=False)).failed_critical == ["second"]
     assert grade(TWO_OF_EACH, full, two_verdict(af1=True)).triggered_auto_fail == ["two"]

@@ -20,7 +20,9 @@ Only approved items will be used.
 Every task family will include trap items. In a trap, the text does not contain
 the answer, and the right response is to say so. Every trap has an answerable twin
 built from the same scenario, and the checks enforce this. A pair only passes if
-both twins pass, so a model that refuses everything earns no pair credit.
+both twins pass. A trap's criteria require the answer to say what the text does
+and does not show, so a bare refusal fails the trap too. The twin catches a model
+that reads the text but will not commit to the answer it supports.
 
 Answers are marked by an LLM judge (Claude, run through the local Claude Code CLI)
 against each item's rubric, plus code checks for required numbers. The judge is

@@ -33,8 +33,11 @@ model's real reply, so the sample should be rerun.
 ## Pair scoring
 
 A trap item and its answerable twin form a pair. A pair passes only if both pass.
-A model that flags everything passes the traps but fails their twins, so it earns
-no pair credit. The report's "flagged, twin failed" column counts exactly that.
+A trap's critical criteria require the answer to say what the text does and does
+not show, so a bare refusal or a generic "contact your bank" fails the trap too.
+The twin catches a model that engages with the text but will not commit: it passes
+the trap and fails the twin, so it earns no pair credit. The report's "flagged,
+twin failed" column counts those pairs.
 
 ## Metrics and the report
 
@@ -56,7 +59,7 @@ shows, per model:
 - items passed
 - answerable items passed
 - pairs passed
-- traps flagged whose twin failed, which is what a refuse-everything model scores
+- traps flagged whose twin failed, the signature of a model that will not commit
 
 Pair scoring needs one grade per item, so the scorer raises on any epoch after the
 first. With `--fail-on-error` off, a multi-epoch run's in-run metrics still show

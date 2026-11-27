@@ -90,3 +90,20 @@ def test_release_check_passes_when_all_items_are_approved(tmp_path):
 def test_load_items_reads_every_yaml_file(tmp_path):
     write_items(tmp_path, [item()])
     assert [i.id for i in load_items(tmp_path)] == ["bank-001"]
+
+
+def test_item_needs_a_critical_criterion():
+    with pytest.raises(ValidationError, match="critical"):
+        Item.model_validate(item(criteria=[{"id": "a", "text": "t"}]))
+
+
+def test_criterion_ids_must_be_unique():
+    twice = [{"id": "a", "text": "t", "critical": True}, {"id": "a", "text": "u"}]
+    with pytest.raises(ValidationError, match="duplicate criterion id: a"):
+        Item.model_validate(item(criteria=twice))
+
+
+def test_yml_files_are_refused_not_skipped(tmp_path):
+    (tmp_path / "medication.yml").write_text(yaml.safe_dump([item()]), encoding="utf-8")
+    with pytest.raises(DatasetError, match="rename medication.yml to .yaml"):
+        load_items(tmp_path)

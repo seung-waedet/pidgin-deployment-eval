@@ -53,9 +53,15 @@ class Item(_Strict):
     reviewer_note: str = ""
 
     @model_validator(mode="after")
-    def _trap_names_its_pair(self) -> "Item":
+    def _check_rubric(self) -> "Item":
         if self.expected is Expected.FLAG and self.pair is None:
             raise ValueError(f"trap {self.id} must name its pair")
+        if not any(c.critical for c in self.criteria):
+            raise ValueError(f"{self.id} needs at least one critical criterion")
+        ids = [c.id for c in self.criteria]
+        for criterion_id in ids:
+            if ids.count(criterion_id) > 1:
+                raise ValueError(f"duplicate criterion id: {criterion_id}")
         return self
 
 
@@ -78,6 +84,8 @@ def check_dataset(items: list[Item]) -> None:
 
 
 def load_items(directory: Path) -> list[Item]:
+    for stray in sorted(directory.glob("*.yml")):
+        raise DatasetError(f"rename {stray.name} to .yaml; .yml files would be skipped")
     rows = []
     for path in sorted(directory.glob("*.yaml")):
         rows.extend(yaml.safe_load(path.read_text(encoding="utf-8")) or [])

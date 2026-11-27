@@ -7,8 +7,9 @@ This project will test that on everyday tasks. The planned task families are
 reading a medication label, explaining a bank alert or POS reversal, and
 summarising a public notice.
 
-**Status: the first test items (bank alerts) are drafted and none have been
-reviewed yet. No models have been run and there are no results yet.**
+**Status: 10 bank-alert items are drafted and none have been reviewed yet. The
+scorer and LLM judge are built and tested. Only development runs on draft items
+have happened, so there are no results yet.**
 
 ## What is measured
 
@@ -18,9 +19,13 @@ Only approved items will be used.
 
 Every task family will include trap items. In a trap, the text does not contain
 the answer, and the right response is to say so. Every trap has an answerable twin
-built from the same scenario, and the checks enforce this. Once scoring is built, a
-model will only earn trap credit if it also answers the twin, so a model that
-refuses everything will score nothing.
+built from the same scenario, and the checks enforce this. A pair only passes if
+both twins pass, so a model that refuses everything earns no pair credit.
+
+Answers are marked by an LLM judge (Claude, run through the local Claude Code CLI)
+against each item's rubric, plus code checks for required numbers. The judge is
+itself tested on labelled answers before its marks are trusted. See
+`services/scorer/README.md`.
 
 ## Not medical or financial advice
 
@@ -32,6 +37,10 @@ not mean a model is safe to use for health or money decisions.
 ## Layout
 
 - `services/dataset` holds the item schema and the checks every item must pass.
+- `services/scorer` is the Inspect AI task, the LLM judge, pair scoring and the
+  results report.
+- `services/llm` lets Inspect use the local Claude Code CLI as a model, which the
+  judge runs on.
 - `docs/related-work.md` covers what existing work measures and how this differs.
 - `items/` holds the test items. It is a separate private repo cloned into this
   folder and ignored by this one, so items are never committed here.
@@ -54,7 +63,20 @@ uv run pytest
 uv run pidgin-dataset check ../../items
 ```
 
-Add `--release` to fail while any item is still a draft. Results runs will have to
-pass this check, so no unreviewed item reaches the results.
+Add `--release` to fail while any item is still a draft. Real eval runs refuse
+draft items in the same way, so no unreviewed item reaches the results.
 
-Not built yet: the scorer, the LLM judge for open answers, and results runs.
+## Run an eval
+
+Models under test run through OpenRouter. Put `OPENROUTER_API_KEY=...` in a `.env`
+file at the repo root (it is gitignored). The judge needs the `claude` CLI signed in.
+
+```bash
+cd services/scorer
+uv run inspect eval pidgin_scorer/task.py@pidgin_eval --model openrouter/<model>
+uv run inspect eval pidgin_scorer/task.py@judge_calibration --model none
+uv run pidgin-report logs/*.eval
+```
+
+Free OpenRouter models may log prompts or train on them. Never send held-out items
+to one.

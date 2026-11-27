@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import stat
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -79,12 +80,12 @@ def test_split_messages_rejects_anything_but_one_user_message(messages):
 
 async def test_generate_sends_the_prompt_on_stdin_and_returns_the_result(tmp_path, monkeypatch):
     usage = {"input_tokens": 12, "cache_read_input_tokens": 900, "cache_creation_input_tokens": 40, "output_tokens": 4}
-    payload = {"is_error": False, "result": "Na 37,700.", "usage": usage}
+    payload = {"is_error": False, "result": "Na 52,850.", "usage": usage}
     monkeypatch.setenv("CLAUDE_CODE_BIN", str(fake_claude(tmp_path, payload)))
 
     output = await get_model("claude-code/fable").generate("Which balance?")
 
-    assert output.completion == "Na 37,700."
+    assert output.completion == "Na 52,850."
     assert (output.usage.input_tokens_cache_read, output.usage.total_tokens) == (900, 956)
     call = recorded_call(tmp_path)
     assert call["stdin"] == "Which balance?"
@@ -182,16 +183,19 @@ async def gone_within(pid: int, seconds: float) -> bool:
 
 
 async def test_a_timeout_holds_even_when_a_child_keeps_the_pipes_open(tmp_path, monkeypatch):
-    # A shell script, not Python: it starts in milliseconds even on a loaded machine,
-    # so the grandchild exists well before the 2s timeout fires.
+    # A shell script, not Python, so start-up is milliseconds. macOS also scans a new
+    # executable on its first run (about 1s, more under load), so run it once first:
+    # the timed call must not depend on how fast the machine starts a process.
     script = tmp_path / "claude"
     script.write_text(
         "#!/bin/sh\n"
+        '[ "$1" = "--warm" ] && exit 0\n'
         "sleep 47 &\n"
         f"echo $! > {str(tmp_path / 'grandchild')!r}\n"
         "sleep 47\n"
     )
     script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    subprocess.run([str(script), "--warm"], check=True)
     monkeypatch.setenv("CLAUDE_CODE_BIN", str(script))
 
     started = time.monotonic()

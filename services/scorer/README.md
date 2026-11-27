@@ -62,7 +62,8 @@ shows, per model:
 - items passed
 - answerable items passed
 - pairs passed
-- traps flagged whose twin failed, the signature of a model that will not commit
+- traps passed whose twin failed, a sign the model hedged where the text supported
+  an answer
 
 Pair scoring needs one grade per item, so the scorer raises on any epoch after the
 first. With `--fail-on-error` off, a multi-epoch run's in-run metrics still show

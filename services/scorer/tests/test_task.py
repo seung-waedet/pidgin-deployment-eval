@@ -359,13 +359,14 @@ def test_calibration_agreement_is_nan_on_a_partial_run(tmp_path):
     assert metrics["agreement"] != metrics["agreement"]
 
 
-def test_calibration_agreement_leaves_out_judge_errors(tmp_path):
+def test_calibration_agreement_is_nan_when_the_judge_errors(tmp_path):
     items_dir = write_items(tmp_path / "items", [item("bank-002")])
     cases = tmp_path / "cases.yaml"
     rows = [{"id": f"c{i}", "item": "bank-002", "answer": "a", "expected": "pass", "why": "w", "review": "draft"} for i in (1, 2)]
     cases.write_text(yaml.safe_dump(rows), encoding="utf-8")
     metrics, _ = run(judge_calibration(cases_file=str(cases), items_dir=items_dir), [], [verdict(True), "x", "x", "x"], tmp_path)
-    assert metrics == {"agreement": 1.0, "calibration_judge_errors": 1}
+    assert metrics["agreement"] != metrics["agreement"]
+    assert metrics["calibration_judge_errors"] == 1
 
 
 def tampered(log, sample_id, **score_metadata):
@@ -421,6 +422,8 @@ def test_an_invalidated_log_is_not_a_result(tmp_path):
     [
         ModelOutput.from_content(model="mockllm/model", content=""),
         ModelOutput.from_content(model="mockllm/model", content="Your balance na", stop_reason="max_tokens"),
+        ModelOutput.from_content(model="mockllm/model", content="  \n "),
+        ModelOutput.from_content(model="mockllm/model", content="Your balance na", stop_reason="model_length"),
     ],
 )
 def test_empty_or_truncated_answers_error_instead_of_failing(tmp_path, output):
@@ -429,3 +432,38 @@ def test_empty_or_truncated_answers_error_instead_of_failing(tmp_path, output):
     _, log = run_partial(pidgin_eval(items_dir=items_dir), model, [verdict(False)], tmp_path)
     assert log.samples[0].error is not None
     assert report_main([log.location]) == 1
+
+
+def tampered_sample(log, sample_id, **sample_metadata):
+    copy = log.model_copy(deep=True)
+    for sample in copy.samples:
+        if sample.id == sample_id:
+            sample.metadata.update(sample_metadata)
+    return copy
+
+
+def test_a_retried_sample_from_older_item_content_is_refused(tmp_path):
+    items_dir = write_items(tmp_path / "items", [item("bank-002")])
+    _, log = run(pidgin_eval(items_dir=items_dir), ["x"], [verdict(True)], tmp_path)
+    old = tampered(tampered_sample(log, "bank-002", item_hash="1" * 16), "bank-002", item_hash="1" * 16)
+    assert "1 samples ran on content that differs from this log's item list (bank-002)" in problems(old)
+
+
+def test_a_draft_run_rescored_after_approval_is_not_a_result(tmp_path):
+    items_dir = write_items(tmp_path / "items", [item("bank-002")])
+    _, log = run(pidgin_eval(items_dir=items_dir), ["x"], [verdict(True)], tmp_path)
+    assert not is_result([tampered_sample(log, "bank-002", review="draft")])
+
+
+def test_a_cancelled_run_is_not_a_result(tmp_path):
+    items_dir = write_items(tmp_path / "items", [item("bank-002")])
+    _, log = run(pidgin_eval(items_dir=items_dir), ["x"], [verdict(True)], tmp_path)
+    assert "run status is cancelled" in problems(log.model_copy(update={"status": "cancelled"}))
+
+
+def test_report_exit_code_checks_every_log_not_just_the_first(tmp_path):
+    good_dir = write_items(tmp_path / "good", [item("bank-002")])
+    draft_dir = write_items(tmp_path / "draft", [item("bank-002", review="draft")])
+    _, good = run(pidgin_eval(items_dir=good_dir), ["x"], [verdict(True)], tmp_path / "rg")
+    _, draft = run(pidgin_eval(items_dir=draft_dir, release=False), ["x"], [verdict(True)], tmp_path / "rd")
+    assert report_main([good.location, draft.location]) == 1

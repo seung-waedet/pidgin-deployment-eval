@@ -191,10 +191,10 @@ def fixed_answer():
 @metric
 def agreement() -> Metric:
     def compute(scores: list[SampleScore]) -> float:
-        if not _complete(scores):
+        outcomes = [s.score.metadata["grade"]["outcome"] for s in scores]
+        if not _complete(scores) or Outcome.JUDGE_ERROR in outcomes:
             return NAN
-        judged = [s for s in scores if s.score.metadata["grade"]["outcome"] != Outcome.JUDGE_ERROR]
-        return _ratio(sum(s.score.value == 1 for s in judged), len(judged))
+        return _ratio(sum(s.score.value == 1 for s in scores), len(scores))
 
     return compute
 

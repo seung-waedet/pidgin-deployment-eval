@@ -202,3 +202,50 @@ def test_parse_rejects_a_criterion_or_index_marked_twice():
 def test_parse_turns_hostile_input_into_a_verdict_error(text):
     with pytest.raises(VerdictError):
         parse_verdict(ITEM, text)
+
+
+TWO_OF_EACH = Item.model_validate(
+    {
+        "id": "bank-002",
+        "family": "bank_alert",
+        "expected": "answer",
+        "review": "draft",
+        "source": "s",
+        "question": "q",
+        "reference": "r",
+        "facts": [{"name": "amount", "value": "20000"}, {"name": "total", "value": "20076.88"}],
+        "criteria": [
+            {"id": "first", "text": "t", "critical": True},
+            {"id": "second", "text": "t", "critical": True},
+        ],
+        "auto_fail": ["one", "two"],
+    }
+)
+
+
+def two_verdict(first=True, second=True, af0=False, af1=False):
+    return parse_verdict(
+        TWO_OF_EACH,
+        json.dumps(
+            {
+                "understood_reason": "r",
+                "understood": True,
+                "criteria": [
+                    {"id": "first", "reason": "r", "met": first},
+                    {"id": "second", "reason": "r", "met": second},
+                ],
+                "auto_fail": [
+                    {"index": 0, "reason": "r", "triggered": af0},
+                    {"index": 1, "reason": "r", "triggered": af1},
+                ],
+            }
+        ),
+    )
+
+
+def test_every_criterion_fact_and_auto_fail_counts_not_just_the_first():
+    full = "20,000 and 20,076.88"
+    assert grade(TWO_OF_EACH, full, two_verdict()).outcome is Outcome.PASS
+    assert grade(TWO_OF_EACH, full, two_verdict(second=False)).failed_critical == ["second"]
+    assert grade(TWO_OF_EACH, full, two_verdict(af1=True)).triggered_auto_fail == ["two"]
+    assert grade(TWO_OF_EACH, "20,000 only", two_verdict()).missing_facts == ["total"]

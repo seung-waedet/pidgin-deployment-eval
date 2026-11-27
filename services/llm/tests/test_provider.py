@@ -3,6 +3,7 @@ import json
 import os
 import stat
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -163,8 +164,38 @@ async def test_the_default_timeout_applies_when_none_is_set(tmp_path, monkeypatc
 
 def test_only_allowlisted_variables_reach_the_child():
     environ = {name: "v" for name in ["PATH", "HOME", "LC_ALL", "CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY",
-                                      "ANTHROPIC_AUTH_TOKEN", "CLAUDECODE", "CLAUDE_EFFORT", "OTHER"]}
+                                      "ANTHROPIC_AUTH_TOKEN", "CLAUDECODE", "CLAUDE_EFFORT", "OTHER",
+                                      "ANTHROPIC_MODEL", "NODE_OPTIONS"]}
     assert set(child_environment(environ)) == {"PATH", "HOME", "LC_ALL", "CLAUDE_CODE_OAUTH_TOKEN"}
+
+
+async def test_a_timeout_holds_even_when_a_child_keeps_the_pipes_open(tmp_path, monkeypatch):
+    script = tmp_path / "claude"
+    script.write_text(
+        f"#!{sys.executable}\n"
+        "import json, subprocess, time\n"
+        "child = subprocess.Popen(['sleep', '47'])\n"
+        f"open({str(tmp_path / 'call.json')!r}, 'w').write(json.dumps({{'grandchild': child.pid}}))\n"
+        "time.sleep(47)\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("CLAUDE_CODE_BIN", str(script))
+
+    started = time.monotonic()
+    with pytest.raises(ClaudeCodeError, match="within 2s"):
+        await get_model("claude-code/fable").generate("q", config=GenerateConfig(timeout=2))
+    assert time.monotonic() - started < 10
+
+    await asyncio.sleep(0.5)
+    with pytest.raises(ProcessLookupError):
+        os.kill(recorded_call(tmp_path)["grandchild"], 0)
+
+
+async def test_a_context_overflow_is_reported_as_cut_off(tmp_path, monkeypatch):
+    payload = {"is_error": False, "result": "half", "stop_reason": "model_context_window_exceeded"}
+    monkeypatch.setenv("CLAUDE_CODE_BIN", str(fake_claude(tmp_path, payload)))
+    output = await get_model("claude-code/fable").generate("q")
+    assert output.stop_reason == "model_length"
 
 
 async def test_a_hung_call_times_out(tmp_path, monkeypatch):

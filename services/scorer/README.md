@@ -42,7 +42,7 @@ The in-run metrics are `item_accuracy`, `answer_accuracy` and `pair_score`, plus
 `judge_errors` count. The three scores are NaN unless every item in the dataset was
 graded with no judge error, because Inspect silently drops errored samples before
 metrics and accepts `--limit` and `--sample-id` subsets. Calibration's `agreement`
-is NaN on a partial run in the same way.
+is NaN on a partial run or with any judge error in the same way.
 
 `pidgin-report` is the result of record. It refuses to summarise a log that is not
 a complete `pidgin_eval` run: wrong task, failed status, errored samples, items not

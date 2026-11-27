@@ -1,6 +1,8 @@
 import asyncio
+import contextlib
 import json
 import os
+import signal
 import tempfile
 from collections.abc import Mapping
 
@@ -17,6 +19,7 @@ from inspect_ai.tool import ToolChoice, ToolInfo
 
 DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
 DEFAULT_TIMEOUT_SECONDS = 600
+KILL_WAIT_SECONDS = 5
 
 # The CLI can report a failure as an ordinary result with is_error false. These are
 # the forms seen or documented; any of them is an outage, never an answer.
@@ -26,7 +29,11 @@ _IN_BAND_ERRORS = (
     "Invalid API key",
     "You've hit your limit",
 )
-_STOP_REASONS = {"max_tokens": "max_tokens", "refusal": "content_filter"}
+_STOP_REASONS = {
+    "max_tokens": "max_tokens",
+    "model_context_window_exceeded": "model_length",
+    "refusal": "content_filter",
+}
 
 
 class ClaudeCodeError(RuntimeError):
@@ -149,6 +156,7 @@ class ClaudeCodeAPI(ModelAPI):
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                start_new_session=True,
             )
             try:
                 stdout, stderr = await asyncio.wait_for(
@@ -157,10 +165,13 @@ class ClaudeCodeAPI(ModelAPI):
             except TimeoutError:
                 raise ClaudeCodeError(f"claude did not answer within {timeout}s") from None
             finally:
-                # Also runs on cancellation, so no claude process outlives its call.
-                if process.returncode is None:
-                    process.kill()
-                    await process.wait()
+                # Runs on success, timeout and cancellation. asyncio only reports the exit
+                # once every pipe is closed, so any child the CLI started that still holds
+                # them must die too: kill the whole process group, then wait a bounded time.
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGKILL)
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(process.wait(), timeout=KILL_WAIT_SECONDS)
 
         if process.returncode != 0:
             raise ClaudeCodeError(

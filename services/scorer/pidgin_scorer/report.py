@@ -37,6 +37,12 @@ def problems(log: EvalLog) -> list[str]:
     missing = expected - {str(s.id) for s in samples}
     if missing:
         found.append(f"{len(missing)} items not run ({_ids(list(missing))})")
+    # eval-retry reuses finished samples from the original run, so after an item edit
+    # one log can mix old and new content. Every sample must match the log's list.
+    hashes = _item_hashes(log)
+    stale = [str(s.id) for s in samples if (s.metadata or {}).get("item_hash") != hashes.get(str(s.id))]
+    if stale:
+        found.append(f"{len(stale)} samples ran on content that differs from this log's item list ({_ids(stale)})")
     # A rescore after the items were edited would grade against a rubric no model saw.
     changed = [
         str(s.id)

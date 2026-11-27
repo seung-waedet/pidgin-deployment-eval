@@ -33,10 +33,11 @@ model's real reply, so the sample should be rerun.
 ## Pair scoring
 
 A trap item and its answerable twin form a pair. A pair passes only if both pass.
-A trap's critical criteria require the answer to say what the text does and does
-not show, so a bare refusal or a generic "contact your bank" fails the trap too.
-The twin catches a model that engages with the text but will not commit: it passes
-the trap and fails the twin, so it earns no pair credit. The report's "flagged,
+Most traps' critical criteria require the answer to say what the text does and
+does not show, so a bare refusal or a generic "contact your bank" fails them too.
+Where a trap's correct answer is itself cautious, a generic hedge can pass the trap.
+Either way, the twin catches a model that will not commit to the answer the text
+supports: it passes the trap and fails the twin, so it earns no pair credit. The report's "flagged,
 twin failed" column counts those pairs.
 
 ## Metrics and the report

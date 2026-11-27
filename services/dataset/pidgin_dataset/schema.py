@@ -1,3 +1,4 @@
+import hashlib
 from collections import Counter, defaultdict
 from decimal import Decimal
 from enum import StrEnum
@@ -51,6 +52,11 @@ class Item(_Strict):
     auto_fail: list[str] = []
     pair: str | None = None
     reviewer_note: str = ""
+
+    def fingerprint(self) -> str:
+        """Hash of everything a model or the judge sees. Review status and notes are left out."""
+        content = self.model_dump_json(exclude={"review", "reviewer_note"})
+        return hashlib.sha256(content.encode()).hexdigest()[:16]
 
     @model_validator(mode="after")
     def _check_rubric(self) -> "Item":

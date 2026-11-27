@@ -24,6 +24,8 @@ pytestmark = pytest.mark.anyio
 
 def fake_claude(tmp_path: Path, payload: dict | str, exit_code: int = 0, sleep: float = 0) -> Path:
     """A stand-in claude binary that records its call, optionally hangs, then replies."""
+    if isinstance(payload, dict) and "usage" not in payload:
+        payload = payload | {"usage": {"input_tokens": 10, "output_tokens": 5}}
     reply = payload if isinstance(payload, str) else json.dumps(payload)
     script = tmp_path / "claude"
     script.write_text(
@@ -49,8 +51,9 @@ def test_command_isolates_the_session_from_user_settings():
     assert command[command.index("--setting-sources") + 1] == ""
     assert command[command.index("--tools") + 1] == ""
     assert command[command.index("--system-prompt") + 1] == "Mark this."
-    for flag in ["--no-session-persistence", "--strict-mcp-config", "--disable-slash-commands"]:
+    for flag in ["--print", "--no-session-persistence", "--strict-mcp-config", "--disable-slash-commands"]:
         assert flag in command
+    assert command[command.index("--output-format") + 1] == "json"
 
 
 def test_split_messages_joins_system_and_takes_the_user_prompt():
@@ -60,9 +63,17 @@ def test_split_messages_joins_system_and_takes_the_user_prompt():
     assert (system, prompt) == ("a\n\nb", "q")
 
 
-def test_split_messages_rejects_multi_turn_input():
+@pytest.mark.parametrize(
+    "messages",
+    [
+        [ChatMessageUser(content="q"), ChatMessageAssistant(content="a")],
+        [ChatMessageUser(content="q"), ChatMessageAssistant(content="a"), ChatMessageUser(content="q2")],
+        [ChatMessageSystem(content="s")],
+    ],
+)
+def test_split_messages_rejects_anything_but_one_user_message(messages):
     with pytest.raises(ClaudeCodeError, match="one user message"):
-        split_messages([ChatMessageUser(content="q"), ChatMessageAssistant(content="a")])
+        split_messages(messages)
 
 
 async def test_generate_sends_the_prompt_on_stdin_and_returns_the_result(tmp_path, monkeypatch):
@@ -104,6 +115,10 @@ async def test_a_reply_without_a_result_raises(tmp_path, monkeypatch):
         {"is_error": False, "result": "You've hit your limit · resets 3pm"},
         {"is_error": False, "result": "\nAPI Error: 529 overloaded"},
         {"type": "system", "is_error": False, "result": "not a result message"},
+        {"is_error": False, "result": "   "},
+        {"is_error": False, "result": "Not logged in · Please run /login", "usage": {"output_tokens": 0}},
+        {"is_error": False, "result": "Some brand new error wording", "usage": {"input_tokens": 0}},
+        {"is_error": False, "result": "no usage block at all", "usage": None},
     ],
 )
 async def test_replies_that_are_not_answers_raise(tmp_path, monkeypatch, payload):

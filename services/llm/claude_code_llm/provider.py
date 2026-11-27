@@ -91,7 +91,11 @@ def parse_result(model: str, stdout: str) -> ModelOutput:
     if result.strip().startswith(_IN_BAND_ERRORS):
         raise ClaudeCodeError(f"claude reported an error as its result: {result[:200]!r}")
 
+    # A real reply always generates tokens. An error the CLI writes itself does not,
+    # so this catches error wordings that the list above has never seen.
     usage = payload.get("usage") or {}
+    if usage.get("output_tokens", 0) <= 0:
+        raise ClaudeCodeError(f"claude reported no generated tokens, so this is not an answer: {result[:200]!r}")
     input_tokens = usage.get("input_tokens", 0)
     cache_read = usage.get("cache_read_input_tokens", 0)
     cache_write = usage.get("cache_creation_input_tokens", 0)

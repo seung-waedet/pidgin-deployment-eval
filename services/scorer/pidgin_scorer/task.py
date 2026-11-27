@@ -45,6 +45,7 @@ def to_sample(item: Item, dataset_size: int) -> Sample:
             "pair": item.pair,
             "expected": item.expected.value,
             "review": item.review.value,
+            "item_hash": item.fingerprint(),
             "dataset_size": dataset_size,
         },
     )
@@ -112,6 +113,8 @@ async def _grade(item: Item, answer: str) -> tuple[Grade, dict]:
     result = grade(item, answer, verdict)
     details = {
         "judge_model": str(grader),
+        "item_hash": item.fingerprint(),
+        "review": item.review.value,
         "grade": result.model_dump(mode="json"),
         "verdict": verdict.model_dump(mode="json") if verdict else None,
         "judge_raw": raw,
@@ -136,6 +139,12 @@ def pidgin_scorer(items_dir: str):
         if state.epoch != 1:
             raise ValueError("pair scoring needs one grade per item: run with --epochs 1")
         answer = state.output.completion
+        # An empty or cut-off answer is more often an upstream failure than the model's
+        # real reply, so the sample errors and gets rerun instead of counting as a fail.
+        if not answer.strip():
+            raise ValueError("empty answer: rerun this sample")
+        if state.output.stop_reason in ("max_tokens", "model_length"):
+            raise ValueError(f"answer was cut off ({state.output.stop_reason}): rerun this sample")
         result, details = await _grade(items[str(state.sample_id)], answer)
         return Score(
             value=1 if result.outcome is Outcome.PASS else 0,
@@ -155,7 +164,7 @@ def pidgin_eval(items_dir: str = str(ITEMS_DIR), release: bool = True) -> Task:
         solver=generate(),
         scorer=pidgin_scorer(items_dir),
         epochs=1,
-        metadata={"item_ids": sorted(items)},
+        metadata={"item_hashes": {item_id: item.fingerprint() for item_id, item in sorted(items.items())}},
     )
 
 

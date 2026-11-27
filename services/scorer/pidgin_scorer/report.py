@@ -17,7 +17,7 @@ def problems(log: EvalLog) -> list[str]:
     """Reasons this log is not a complete result. Empty means it is one."""
     if log.eval.task.split("/")[-1] != TASK:
         return [f"not a {TASK} log ({log.eval.task})"]
-    found = []
+    found = ["log is marked invalidated"] if log.invalidated else []
     if log.status != "success":
         found.append(f"run status is {log.status}")
     epochs = log.eval.config.epochs or 1
@@ -31,12 +31,21 @@ def problems(log: EvalLog) -> list[str]:
     limited = [str(s.id) for s in samples if s.limit]
     if limited:
         found.append(f"{len(limited)} samples hit a run limit ({_ids(limited)})")
-    expected = set((log.eval.metadata or {}).get("item_ids", []))
+    expected = set(_item_hashes(log))
     if not expected:
         found.append("log has no item list")
     missing = expected - {str(s.id) for s in samples}
     if missing:
         found.append(f"{len(missing)} items not run ({_ids(list(missing))})")
+    # A rescore after the items were edited would grade against a rubric no model saw.
+    changed = [
+        str(s.id)
+        for s in samples
+        if SCORER in (s.scores or {})
+        and s.scores[SCORER].metadata.get("item_hash") != (s.metadata or {}).get("item_hash")
+    ]
+    if changed:
+        found.append(f"{len(changed)} items graded against content that differs from the run ({_ids(changed)})")
     judge_errors = [i for i, g in _grades(log).items() if g.outcome is Outcome.JUDGE_ERROR]
     if judge_errors:
         found.append(f"{len(judge_errors)} judge errors ({_ids(judge_errors)}), rescore with inspect score")
@@ -63,12 +72,28 @@ def _cell(g: Grade | None) -> str:
     return "fail (" + "; ".join(reasons) + ")"
 
 
-def _item_ids(log: EvalLog) -> frozenset[str]:
-    return frozenset((log.eval.metadata or {}).get("item_ids", []))
+def _item_hashes(log: EvalLog) -> dict[str, str]:
+    return (log.eval.metadata or {}).get("item_hashes", {})
 
 
-def _summary_row(model: str, log: EvalLog, grades: dict[str, Grade], same_items: bool) -> str:
-    found = problems(log) + ([] if same_items else ["logs cover different item sets"])
+def cross_problems(logs: list[EvalLog]) -> list[str]:
+    """Reasons these logs cannot be compared side by side. Empty means they can."""
+    found = []
+    if len({frozenset(_item_hashes(log).items()) for log in logs}) > 1:
+        found.append("logs cover different item sets")
+    judges = {
+        s.scores[SCORER].metadata.get("judge_model")
+        for log in logs
+        for s in log.samples or []
+        if SCORER in (s.scores or {})
+    }
+    if len(judges) > 1:
+        found.append("logs were marked by different judges")
+    return found
+
+
+def _summary_row(model: str, log: EvalLog, grades: dict[str, Grade], shared: list[str]) -> str:
+    found = problems(log) + shared
     if found:
         return f"| {model} | incomplete: {'; '.join(found)} |"
     s = summarize(list(grades.values()))
@@ -79,13 +104,17 @@ def _summary_row(model: str, log: EvalLog, grades: dict[str, Grade], same_items:
 
 
 def _has_drafts(log: EvalLog) -> bool:
-    return any((s.metadata or {}).get("review") == "draft" for s in log.samples or [])
+    def draft(sample) -> bool:
+        score = (sample.scores or {}).get(SCORER)
+        graded_as_draft = score is not None and score.metadata.get("review") == "draft"
+        return (sample.metadata or {}).get("review") == "draft" or graded_as_draft
+
+    return any(draft(s) for s in log.samples or [])
 
 
 def is_result(logs: list[EvalLog]) -> bool:
-    """True only for complete runs on approved items over one shared item set."""
-    same_items = len({_item_ids(log) for log in logs}) == 1
-    return same_items and not any(problems(log) or _has_drafts(log) for log in logs)
+    """True only for complete, comparable runs graded on approved items."""
+    return not cross_problems(logs) and not any(problems(log) or _has_drafts(log) for log in logs)
 
 
 def render(logs: list[EvalLog]) -> str:
@@ -101,8 +130,8 @@ def render(logs: list[EvalLog]) -> str:
         "| model | items passed | answerable passed | pairs passed | flagged, twin failed |",
         "|---|---|---|---|---|",
     ]
-    same_items = len({_item_ids(log) for log in logs}) == 1
-    lines += [_summary_row(m, log, g, same_items) for m, log, g in zip(models, logs, graded)]
+    shared = cross_problems(logs)
+    lines += [_summary_row(m, log, g, shared) for m, log, g in zip(models, logs, graded)]
     lines += [""]
 
     lines += ["| item | expected | " + " | ".join(models) + " |"]

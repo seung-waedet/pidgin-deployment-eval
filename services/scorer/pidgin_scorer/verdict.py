@@ -56,7 +56,7 @@ def parse_verdict(item: Item, text: str) -> Verdict:
     try:
         raw = json.loads(body, object_pairs_hook=_reject_duplicate_keys)
         verdict = Verdict.model_validate(raw)
-    except (json.JSONDecodeError, ValidationError) as error:
+    except (ValueError, RecursionError, ValidationError) as error:
         raise VerdictError(f"unreadable judge output: {error}") from error
 
     criterion_ids = sorted(c.id for c in verdict.criteria)

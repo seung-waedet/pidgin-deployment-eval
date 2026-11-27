@@ -7,7 +7,7 @@ from inspect_ai import eval
 from inspect_ai.model import ModelOutput, get_model
 
 from pidgin_scorer.report import main as report_main
-from pidgin_scorer.report import problems, render
+from pidgin_scorer.report import is_result, problems, render
 from pidgin_scorer.task import ReleaseError, judge_calibration, pidgin_eval
 
 
@@ -211,6 +211,8 @@ def run_partial(task, model, verdicts, tmp_path, **kwargs):
         fail_on_error=False,
         **kwargs,
     )
+    if log.results is None:
+        return {}, log
     return {name: m.value for name, m in log.results.scores[0].metrics.items()}, log
 
 
@@ -299,7 +301,7 @@ def test_later_epochs_are_refused_by_the_scorer_itself(tmp_path):
 def test_samples_that_hit_a_run_limit_make_the_report_incomplete(tmp_path):
     items_dir = write_items(tmp_path / "items", [item("bank-002")])
     _, log = run_partial(pidgin_eval(items_dir=items_dir), mock("x"), [verdict(True)], tmp_path, token_limit=1)
-    assert "incomplete: 1 samples hit a run limit (bank-002)" in render([log])
+    assert "1 samples hit a run limit (bank-002)" in render([log])
 
 
 def test_report_refuses_a_failed_run_and_a_log_without_an_item_list(tmp_path):
@@ -364,3 +366,66 @@ def test_calibration_agreement_leaves_out_judge_errors(tmp_path):
     cases.write_text(yaml.safe_dump(rows), encoding="utf-8")
     metrics, _ = run(judge_calibration(cases_file=str(cases), items_dir=items_dir), [], [verdict(True), "x", "x", "x"], tmp_path)
     assert metrics == {"agreement": 1.0, "calibration_judge_errors": 1}
+
+
+def tampered(log, sample_id, **score_metadata):
+    copy = log.model_copy(deep=True)
+    for sample in copy.samples:
+        if sample.id == sample_id:
+            sample.scores["pidgin_scorer"].metadata.update(score_metadata)
+    return copy
+
+
+def test_report_refuses_grades_made_against_edited_items(tmp_path):
+    items_dir = write_items(tmp_path / "items", [item("bank-002")])
+    _, log = run(pidgin_eval(items_dir=items_dir), ["x"], [verdict(True)], tmp_path)
+    assert problems(log) == []
+    assert problems(tampered(log, "bank-002", item_hash="0" * 16)) == [
+        "1 items graded against content that differs from the run (bank-002)"
+    ]
+
+
+def test_a_rescore_against_draft_items_is_not_a_result(tmp_path):
+    items_dir = write_items(tmp_path / "items", [item("bank-002")])
+    _, log = run(pidgin_eval(items_dir=items_dir), ["x"], [verdict(True)], tmp_path)
+    assert is_result([log])
+    assert not is_result([tampered(log, "bank-002", review="draft")])
+
+
+def test_logs_with_the_same_ids_but_different_content_are_not_comparable(tmp_path):
+    a = write_items(tmp_path / "a", [item("bank-002")])
+    b = write_items(tmp_path / "b", [item("bank-002") | {"question": "Something else?"}])
+    _, log_a = run(pidgin_eval(items_dir=a), ["x"], [verdict(True)], tmp_path / "ra")
+    _, log_b = run(pidgin_eval(items_dir=b), ["x"], [verdict(True)], tmp_path / "rb")
+    assert "logs cover different item sets" in render([log_a, log_b])
+    assert not is_result([log_a, log_b])
+
+
+def test_logs_marked_by_different_judges_are_not_comparable(tmp_path):
+    items_dir = write_items(tmp_path / "items", [item("bank-002")])
+    _, log_a = run(pidgin_eval(items_dir=items_dir), ["x"], [verdict(True)], tmp_path / "ra")
+    _, log_b = run(pidgin_eval(items_dir=items_dir), ["x"], [verdict(True)], tmp_path / "rb")
+    other_judge = tampered(log_b, "bank-002", judge_model="openrouter/some/other")
+    assert "logs were marked by different judges" in render([log_a, other_judge])
+    assert not is_result([log_a, other_judge])
+
+
+def test_an_invalidated_log_is_not_a_result(tmp_path):
+    items_dir = write_items(tmp_path / "items", [item("bank-002")])
+    _, log = run(pidgin_eval(items_dir=items_dir), ["x"], [verdict(True)], tmp_path)
+    assert "log is marked invalidated" in problems(log.model_copy(update={"invalidated": True}))
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        ModelOutput.from_content(model="mockllm/model", content=""),
+        ModelOutput.from_content(model="mockllm/model", content="Your balance na", stop_reason="max_tokens"),
+    ],
+)
+def test_empty_or_truncated_answers_error_instead_of_failing(tmp_path, output):
+    items_dir = write_items(tmp_path / "items", [item("bank-002")])
+    model = get_model("mockllm/model", memoize=False, custom_outputs=[output])
+    _, log = run_partial(pidgin_eval(items_dir=items_dir), model, [verdict(False)], tmp_path)
+    assert log.samples[0].error is not None
+    assert report_main([log.location]) == 1

@@ -27,9 +27,11 @@ Each call runs `claude --print` in an empty temporary directory with:
 A live test measures this: the judge's context is about 955 tokens isolated, against
 10,246 with the user's settings loaded.
 
-A reply that is really an error (`is_error`, a non-success `subtype`, an empty
-result, or a known in-band message such as a usage limit) raises instead of being
-returned as an answer.
+A reply that is really an error raises instead of being returned as an answer.
+The checks are `is_error`, a message type other than `result`, a non-success
+`subtype`, an empty result, a known in-band error message such as a usage limit,
+and, as the catch-all for wordings never seen before, a reply that reports zero
+generated tokens.
 
 ## Limits
 

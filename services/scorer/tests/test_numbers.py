@@ -59,3 +59,7 @@ def test_no_number_is_read_from_partway_through_another():
 def test_a_spaced_m_is_not_millions():
     assert extract_numbers("wait 5 m") == [Decimal("5")]
     assert extract_numbers("5m naira") == [Decimal("5000000")]
+
+
+def test_a_number_glued_to_a_word_by_a_dot_is_not_read():
+    assert extract_numbers("Ref.37700") == []

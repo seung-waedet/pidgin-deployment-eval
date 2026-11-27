@@ -107,3 +107,11 @@ def test_yml_files_are_refused_not_skipped(tmp_path):
     (tmp_path / "medication.yml").write_text(yaml.safe_dump([item()]), encoding="utf-8")
     with pytest.raises(DatasetError, match="rename medication.yml to .yaml"):
         load_items(tmp_path)
+
+
+def test_fingerprint_changes_with_content_but_not_with_review_status():
+    base = Item.model_validate(item())
+    assert base.fingerprint() == Item.model_validate(item(review="draft", reviewer_note="n")).fingerprint()
+    assert base.fingerprint() != Item.model_validate(item(question="Wetin dey happen?")).fingerprint()
+    edited = item(criteria=[{"id": "amount", "text": "States the amount", "critical": True}])
+    assert base.fingerprint() != Item.model_validate(edited).fingerprint()

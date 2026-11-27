@@ -178,3 +178,27 @@ def test_parse_rejects_unknown_keys_and_accepts_an_uppercase_fence():
     with pytest.raises(VerdictError):
         parse_verdict(ITEM, verdict_json()[:-1] + ', "met_final": false}')
     assert parse_verdict(ITEM, "```JSON\n" + verdict_json() + "\n```").understood is True
+
+
+def test_parse_rejects_a_criterion_or_index_marked_twice():
+    twice = json.loads(verdict_json())
+    twice["criteria"].append({"id": "balance", "reason": "r", "met": True})
+    with pytest.raises(VerdictError):
+        parse_verdict(ITEM, json.dumps(twice))
+    twice = json.loads(verdict_json())
+    twice["auto_fail"].append({"index": 0, "reason": "r", "triggered": False})
+    with pytest.raises(VerdictError):
+        parse_verdict(ITEM, json.dumps(twice))
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "```json\n" + verdict_json() + "\n```\nActually balance is not met.",
+        '{"a": ' * 100_000 + "1" + "}" * 100_000,
+        '{"understood": true, "index": ' + "9" * 5000 + "}",
+    ],
+)
+def test_parse_turns_hostile_input_into_a_verdict_error(text):
+    with pytest.raises(VerdictError):
+        parse_verdict(ITEM, text)

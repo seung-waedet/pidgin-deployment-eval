@@ -23,7 +23,12 @@ If the judge's reply cannot be read after 3 attempts, the item is a `judge_error
 unless a fact is missing, in which case code has already failed it. A run with any
 judge error is not a result: dropping those items would shrink the denominator, and
 the judge may fail more often on exactly the long, messy answers that are wrong.
-Rescore the log with `inspect score` instead.
+Rescore the log with `inspect score --action overwrite <log>`. The default
+`append` action adds a second scorer column that the report does not read.
+
+An empty answer, or one cut off by `max_tokens`, errors the sample instead of
+failing it. On free endpoints those are more often upstream failures than the
+model's real reply, so the sample should be rerun.
 
 ## Pair scoring
 
@@ -41,10 +46,12 @@ is NaN on a partial run in the same way.
 
 `pidgin-report` is the result of record. It refuses to summarise a log that is not
 a complete `pidgin_eval` run: wrong task, failed status, errored samples, items not
-run, samples that hit a run limit, any judge error, more than one epoch, or logs
-over different item sets. It prints why instead, and exits with status 1. It also
-exits 1 on draft items, which are never a result. For a complete run it shows, per
-model:
+run, samples that hit a run limit, any judge error, more than one epoch, an
+invalidated log, or grades made against item content that differs from the run.
+Across logs it also refuses different item sets (compared by content fingerprint,
+not just id) and different judges. It prints why instead, and exits with status 1.
+It also exits 1 on draft items, which are never a result. For a complete run it
+shows, per model:
 
 - items passed
 - answerable items passed
@@ -56,7 +63,13 @@ first. With `--fail-on-error` off, a multi-epoch run's in-run metrics still show
 the first epoch's numbers. The report refuses such a run.
 
 Every grade records which judge model produced it (`judge_model` in the score
-metadata), because Inspect leaves the default grader out of the log.
+metadata), because Inspect leaves the default grader out of the log. For the
+default this is the alias `claude-code/fable`, so a run before and after Claude
+Code moves `fable` to a newer model would look like the same judge.
+
+Every sample records a fingerprint of its item at run time, and every grade
+records the fingerprint of the item it was graded against. They must match, so
+editing a rubric and rescoring cannot produce a result nobody ran.
 
 The judge's reply must be a single JSON object, optionally in a code fence. A
 verdict pulled out of surrounding prose could be one the judge was only quoting.

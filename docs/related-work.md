@@ -45,7 +45,8 @@ From Global PIQA:
 - Its Pidgin split can serve as a comprehension control: run each model on it next to
   our items, so a task-specific failure can be told apart from weak general Pidgin.
 - It is released under CC BY-SA 4.0, and its dataset card adds that it may not be
-  used to train AI systems, or to make synthetic training data seeded from it. Evaluating on it is allowed. We will not use it to generate items.
+  used to train AI systems, or to make synthetic training data seeded from it.
+  Evaluating on it is allowed. We will not use it to generate items.
 
 From Wazobia Eval:
 

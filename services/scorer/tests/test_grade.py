@@ -8,7 +8,7 @@ from pidgin_scorer.verdict import VerdictError, parse_verdict
 
 ITEM = Item.model_validate(
     {
-        "id": "bank-006",
+        "id": "fixture-balance",
         "family": "bank_alert",
         "expected": "answer",
         "review": "draft",
@@ -206,7 +206,7 @@ def test_parse_turns_hostile_input_into_a_verdict_error(text):
 
 TWO_OF_EACH = Item.model_validate(
     {
-        "id": "bank-002",
+        "id": "fixture-transfer",
         "family": "bank_alert",
         "expected": "answer",
         "review": "draft",

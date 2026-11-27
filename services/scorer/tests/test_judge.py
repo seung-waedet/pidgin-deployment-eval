@@ -3,7 +3,7 @@ from pidgin_scorer.judge import build_prompt
 
 ITEM = Item.model_validate(
     {
-        "id": "bank-004",
+        "id": "fixture-link",
         "family": "bank_alert",
         "expected": "answer",
         "review": "draft",

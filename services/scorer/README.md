@@ -11,7 +11,7 @@ An answer passes only if all three hold:
    (`25k`, `NGN25,000.00` and `25 thousand` are all 25000, `1.5m` is 1500000, and
    `125,000` is not 25000). A bare `m` counts as million only straight after the
    number, so "wait 5 m" stays 5. Not read: spelled-out numbers ("twenty thousand"),
-   space or dot grouping (`37 700`, `37.700`), and numbers glued to a word by a
+   space or dot grouping (`52 850`, `52.850`), and numbers glued to a word by a
    dot (`Ref.52850`). A fact written those ways shows as a missing fact.
 2. Every `critical` criterion is met, as judged by the LLM judge.
 3. No `auto_fail` is triggered, as judged by the LLM judge.
@@ -34,10 +34,12 @@ model's real reply, so the sample should be rerun.
 
 A trap item and its answerable twin form a pair. A pair passes only if both pass.
 Most traps' critical criteria require the answer to say what the text does and
-does not show, so a bare refusal or a generic "contact your bank" fails them too.
-Where a trap's correct answer is itself cautious, a generic hedge can pass the trap.
-Either way, the twin catches a model that will not commit to the answer the text
-supports: it passes the trap and fails the twin, so it earns no pair credit. The report's "flagged,
+does not show, so a bare refusal or a generic "contact your bank" should fail them
+too. Where a trap's correct answer is itself cautious, a generic hedge can pass the
+trap. The twin is there for the model that hedges where the text does support an
+answer: it passes the trap and fails the twin, so it earns no pair credit. How well
+each twin does this depends on its rubric, and the calibration set does not yet
+test refusals or hedges on traps. The report's "flagged,
 twin failed" column counts those pairs.
 
 ## Metrics and the report
